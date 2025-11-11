@@ -28,31 +28,32 @@ export default function HomePage() {
       setLoading(true);
       const form = new FormData();
       form.append('file', file); // backend kita hanya butuh "file"
+
       const res = await fetch(`${API_BASE}/analyze`, { method: 'POST', body: form });
 
-       if (!res.ok) {
-      // Coba baca JSON error dari backend
-      let msg = `HTTP ${res.status}`;
-      try {
-        const data = await res.json();
-        if (data?.detail) {
-          if (typeof data.detail === 'string') msg = data.detail;
-          else if (data.detail.error) {
-            msg = data.detail.error;
-            if (data.detail.suggested_fruit) {
-              msg += ` Coba unggah buah: ${String(data.detail.suggested_fruit).toUpperCase()}.`;
+        if (!res.ok) {
+        let msg = `HTTP ${res.status}`;
+        try {
+          const data = await res.json();
+          // Backend 422 bentuknya: { detail: { error, predicted, confidence, hint } }
+          if (data?.detail) {
+            if (typeof data.detail === 'string') {
+              msg = data.detail;
+            } else {
+              const { error, predicted, confidence, hint } = data.detail;
+              msg = error || msg;
+              if (predicted) msg += ` (prediksi: ${String(predicted).toUpperCase()}, conf=${confidence ?? '-'})`;
+              if (hint) msg += ` — ${hint}`;
             }
           }
+        } catch {
+          const text = await res.text().catch(() => '');
+          if (text) msg = text;
         }
-      } catch {
-        const text = await res.text().catch(() => '');
-        if (text) msg = text;
+        throw new Error(msg);
       }
-      throw new Error(msg);
-    }
-      
-      const result = await res.json(); // {label, score, probs?, overlay_data_url?}
-      // Bawa hasil + nama file + preview ke halaman /hasil
+
+      const result = await res.json(); // {fruit, fruit_conf, label, score, probs, overlay_data_url}
       navigate('/hasil', { state: { result, filename: file.name, preview } });
     } catch (ex) {
       console.error(ex);
@@ -94,12 +95,11 @@ export default function HomePage() {
           />
         )}
 
-        {err && <div className="mt-3 text-red-600 text-sm">{err}</div>}
         {err && (
-  <div className="mt-3 text-sm rounded-md border border-red-300 bg-red-50 p-3 text-red-700">
-    {err}
-  </div>
-)}
+          <div className="mt-3 text-sm rounded-md border border-red-300 bg-red-50 p-3 text-red-700">
+            {err}
+          </div>
+        )}
 
         <button
           onClick={handleSubmit}

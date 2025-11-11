@@ -30,7 +30,7 @@ except Exception:
 # -------- Model / meta --------
 MODEL = None
 FEATURE_META = {"resize_width": 256, "hsv_bins": 32}  # HARUS match saat training
-MODEL_INFO = {"path": None, "n_features_in": None}
+MODEL_INFO = {"path": None, "n_features_in": None, "classes": []}
 
 def load_model_and_meta():
     """Load model & meta dari backend/models"""
@@ -43,6 +43,7 @@ def load_model_and_meta():
         MODEL = load(p_model)
         MODEL_INFO["path"] = p_model
         MODEL_INFO["n_features_in"] = getattr(MODEL, "n_features_in_", None)
+        MODEL_INFO["classes"] = list(getattr(MODEL, "classes_", []))  # <— tambahkan ini
 
     if os.path.exists(p_meta):
         try:
@@ -151,7 +152,7 @@ def health():
         "ok": True,
         "model_loaded": MODEL is not None,
         "feature_meta": FEATURE_META,
-        "model_info": MODEL_INFO,
+        "model_info": MODEL_INFO,              # akan berisi classes: ["overripe","ripe","unripe"] (urutan model)
         "expected_feature_dim": expected_feature_dim(FEATURE_META),
     }
 

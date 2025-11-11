@@ -15,7 +15,7 @@ except Exception:
 
 FEATURE_META = {"resize_width": 256, "hsv_bins": 32}  # harus sama dg server_debug.py
 ALLOWED_FRUITS = {"banana", "orange", "apple"}
-ALLOWED_RIPENESS = {"unripe", "ripe", "overripe", "midripe"}  # pakai yang kamu punya
+ALLOWED_RIPENESS = {"unripe", "ripe", "overripe"}
 
 def read_path_to_bgr(path, resize_width=256):
     data = np.fromfile(path, dtype=np.uint8)
@@ -114,3 +114,4 @@ if __name__ == "__main__":
         json.dump(FEATURE_META, f, ensure_ascii=False, indent=2)
 
     print("[done] saved to models/model_ml.pkl & models/feature_meta.json")
+    print("[classes]", sorted(set(y)))  # setelah scan_dataset()
