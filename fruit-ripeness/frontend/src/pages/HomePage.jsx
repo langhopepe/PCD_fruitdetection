@@ -1,18 +1,66 @@
 // src/pages/HomePage.jsx
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-function HomePage() {
-  const navigate = useNavigate();
+// Pakai .env (VITE_API_BASE_URL) kalau ada, default ke localhost:8000
+const API_BASE = '/api';
 
-  const handleSubmit = () => {
-    // Di sini nanti kamu akan kirim gambar ke backend/model ML temanmu.
-    // Setelah berhasil upload, kita pindah ke halaman hasil.
-    console.log("Gambar di-upload dan submit. Mengirim ke Page Hasil...");
-    
-    // Pindah ke halaman '/hasil'
-    navigate('/hasil'); 
-  };
+export default function HomePage() {
+  const navigate = useNavigate();
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+
+  function onPick(e) {
+    const f = e.target.files?.[0];
+    setErr('');
+    setFile(f || null);
+    setPreview(f ? URL.createObjectURL(f) : '');
+  }
+
+  async function handleSubmit() {
+    setErr('');
+    if (!file) return setErr('Pilih gambar dulu.');
+    if (file.size > 5 * 1024 * 1024) return setErr('Ukuran file > 5MB.');
+
+    try {
+      setLoading(true);
+      const form = new FormData();
+      form.append('file', file); // backend kita hanya butuh "file"
+      const res = await fetch(`${API_BASE}/analyze`, { method: 'POST', body: form });
+
+       if (!res.ok) {
+      // Coba baca JSON error dari backend
+      let msg = `HTTP ${res.status}`;
+      try {
+        const data = await res.json();
+        if (data?.detail) {
+          if (typeof data.detail === 'string') msg = data.detail;
+          else if (data.detail.error) {
+            msg = data.detail.error;
+            if (data.detail.suggested_fruit) {
+              msg += ` Coba unggah buah: ${String(data.detail.suggested_fruit).toUpperCase()}.`;
+            }
+          }
+        }
+      } catch {
+        const text = await res.text().catch(() => '');
+        if (text) msg = text;
+      }
+      throw new Error(msg);
+    }
+      
+      const result = await res.json(); // {label, score, probs?, overlay_data_url?}
+      // Bawa hasil + nama file + preview ke halaman /hasil
+      navigate('/hasil', { state: { result, filename: file.name, preview } });
+    } catch (ex) {
+      console.error(ex);
+      setErr(ex.message || 'Gagal mengirim ke server.');
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-green-100 flex flex-col items-center justify-center p-4">
@@ -20,39 +68,53 @@ function HomePage() {
         🍏 Deteksi Kematangan Buah - Upload
       </h1>
 
-      {/* 1. Kolom/Tombol Upload Gambar */}
       <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-xl border border-green-300">
-        <label 
-          htmlFor="file-upload" 
-          className="block text-sm font-medium text-gray-700 mb-2"
-        >
+        <label htmlFor="file-upload" className="block text-sm font-medium text-gray-700 mb-2">
           Pilih Gambar Buah (Max 5MB)
         </label>
-        
-        {/* Kolom Upload Sederhana */}
-        <input 
-          id="file-upload" 
-          type="file" 
-          accept="image/*" 
+
+        <input
+          id="file-upload"
+          type="file"
+          accept="image/*"
+          onChange={onPick}
           className="w-full text-sm text-gray-500 
             file:mr-4 file:py-2 file:px-4 
             file:rounded-full file:border-0 
             file:text-sm file:font-semibold
             file:bg-green-50 file:text-green-700
-            hover:file:bg-green-100
-          "
+            hover:file:bg-green-100"
         />
-      </div>
 
-      {/* 2. Tombol Submit Gambar */}
-      <button 
-        onClick={handleSubmit}
-        className="mt-6 px-8 py-3 bg-green-500 text-white font-semibold rounded-full shadow-lg transition duration-300 ease-in-out transform hover:scale-105 hover:bg-green-600 focus:outline-none focus:ring-4 focus:ring-green-300"
-      >
-        Submit Gambar & Deteksi ➡️
-      </button>
+        {preview && (
+          <img
+            src={preview}
+            alt="preview"
+            className="mt-4 max-h-64 w-full object-contain rounded-lg border"
+          />
+        )}
+
+        {err && <div className="mt-3 text-red-600 text-sm">{err}</div>}
+        {err && (
+  <div className="mt-3 text-sm rounded-md border border-red-300 bg-red-50 p-3 text-red-700">
+    {err}
+  </div>
+)}
+
+        <button
+          onClick={handleSubmit}
+          disabled={loading || !file}
+          className="mt-6 w-full px-8 py-3 bg-green-500 text-white font-semibold rounded-full shadow-lg 
+                     transition duration-300 ease-in-out transform hover:scale-105 hover:bg-green-600 
+                     focus:outline-none focus:ring-4 focus:ring-green-300 disabled:opacity-50"
+        >
+          {loading ? 'Menganalisis…' : 'Submit Gambar & Deteksi ➡️'}
+        </button>
+
+        <p className="mt-3 text-xs text-gray-400">
+          API: {API_BASE}/analyze
+        </p>
+      </div>
     </div>
   );
 }
-
-export default HomePage;
